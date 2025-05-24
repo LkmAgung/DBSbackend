@@ -2,5 +2,6 @@
 // Export all middlewares from this file
 
 module.exports = {
-  authMiddleware: require('./auth.middleware')
+  authMiddleware: require('./auth.middleware'),
+  uploadMiddleware: require('./upload.middleware')
 };

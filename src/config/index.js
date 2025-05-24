@@ -11,5 +11,9 @@ module.exports = {
     anonKey: process.env.SUPABASE_ANON_KEY
   },
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
-  // Add additional configuration as needed
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET
+  }
 };
