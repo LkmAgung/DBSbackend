@@ -138,51 +138,130 @@ async function predictCluster(record) {
     const processedData = preprocessInput(record);
     
     console.log('🔍 Processed data:', processedData);
+    console.log('🔍 Input record:', {
+      age: record.age,
+      bmi: record.bmi,
+      hba1c_level: record.hba1c_level,
+      blood_glucose_level: record.blood_glucose_level,
+      hypertension: record.hypertension,
+      heart_disease: record.heart_disease,
+      gender: record.gender,
+      smoking_history: record.smoking_history
+    });
     
-    // Mock prediction berdasarkan logic sederhana untuk testing
-    let clusterIndex = 0;
+    // Updated logic berdasarkan karakteristik cluster yang benar
+    let clusterIndex = 1; // Default: Dewasa Sehat Rendah Risiko
     
-    // Simple rule-based clustering untuk testing
-    const age = record.age;
-    const bmi = record.bmi;
-    const hba1c = record.hba1c_level;
-    const glucose = record.blood_glucose_level;
+    const age = Number(record.age);
+    const bmi = Number(record.bmi);
+    const hba1c = Number(record.hba1c_level);
+    const glucose = Number(record.blood_glucose_level);
+    const hypertension = Boolean(record.hypertension);
+    const heart_disease = Boolean(record.heart_disease);
     
-    // Hitung risk score berdasarkan thresholds
-    let riskScore = 0;
+    console.log('🔍 Parsed values:', { age, bmi, hba1c, glucose, hypertension, heart_disease });
     
-    if (age > 45) riskScore += 1;
-    if (bmi > 25) riskScore += 1;
-    if (hba1c > 6.5) riskScore += 2;
-    if (glucose > 126) riskScore += 2;
-    if (record.hypertension) riskScore += 1;
-    if (record.heart_disease) riskScore += 2;
-    if (record.smoking_history === 'current') riskScore += 1;
+    // Cluster 2: Anak dan Remaja Sehat (usia < 18, BMI rendah)
+    if (age < 18 && bmi < 25) {
+      clusterIndex = 2;
+      console.log('📊 Matched Cluster 2: Anak dan Remaja Sehat');
+    }
+    // Cluster 0: Lansia Berisiko Tinggi (usia >= 50 + faktor risiko tinggi)
+    else if (age >= 50 && (
+      hypertension || 
+      heart_disease || 
+      bmi >= 28 || 
+      hba1c >= 6.0 || 
+      glucose >= 150
+    )) {
+      clusterIndex = 0;
+      console.log('📊 Matched Cluster 0: Lansia Berisiko Tinggi');
+    }
+    // Cluster 3: Dewasa Muda Risiko Glukosa Tinggi (usia 25-45 + glukosa/HbA1c tinggi)
+    else if (age >= 25 && age <= 45 && (
+      hba1c >= 5.7 || 
+      glucose >= 140 || 
+      record.smoking_history === 'current' ||
+      record.smoking_history === 'ever'
+    )) {
+      clusterIndex = 3;
+      console.log('📊 Matched Cluster 3: Dewasa Muda Risiko Glukosa Tinggi');
+    }
+    // Cluster 1: Dewasa Sehat Rendah Risiko (kondisi sehat, usia 30-60)
+    else if (age >= 18 && age < 60 && 
+      bmi >= 20 && bmi < 30 && 
+      hba1c < 5.7 && 
+      glucose < 126 && 
+      !hypertension && 
+      !heart_disease) {
+      clusterIndex = 1;
+      console.log('📊 Matched Cluster 1: Dewasa Sehat Rendah Risiko');
+    }
+    // Default berdasarkan usia jika tidak ada yang cocok
+    else if (age < 25) {
+      clusterIndex = 2; // Muda
+    } else if (age >= 60) {
+      clusterIndex = 0; // Lansia
+    } else {
+      clusterIndex = 1; // Dewasa
+    }
     
-    // Mapping risk score ke cluster
-    if (riskScore <= 2) clusterIndex = 0; // Low risk
-    else if (riskScore <= 4) clusterIndex = 1; // Moderate risk
-    else if (riskScore <= 6) clusterIndex = 2; // High risk
-    else clusterIndex = 3; // Critical risk
+    // Calculate confidence berdasarkan seberapa kuat match dengan cluster
+    let confidence = 0.5; // Base confidence
     
-    // Generate mock probabilities
-    const probabilities = [0.25, 0.25, 0.25, 0.25];
-    probabilities[clusterIndex] = 0.7; // High confidence for predicted cluster
+    if (clusterIndex === 0) { // Lansia Berisiko Tinggi
+      let riskFactors = 0;
+      if (age >= 60) riskFactors++;
+      if (hypertension) riskFactors++;
+      if (heart_disease) riskFactors++;
+      if (bmi >= 28) riskFactors++;
+      if (hba1c >= 6.0) riskFactors++;
+      if (glucose >= 150) riskFactors++;
+      confidence = Math.min(0.9, 0.5 + (riskFactors * 0.1));
+    } else if (clusterIndex === 1) { // Dewasa Sehat
+      let healthFactors = 0;
+      if (age >= 30 && age <= 55) healthFactors++;
+      if (bmi >= 20 && bmi < 28) healthFactors++;
+      if (hba1c < 5.7) healthFactors++;
+      if (glucose < 126) healthFactors++;
+      if (!hypertension) healthFactors++;
+      if (!heart_disease) healthFactors++;
+      confidence = Math.min(0.9, 0.5 + (healthFactors * 0.08));
+    } else if (clusterIndex === 2) { // Anak Remaja
+      let youthFactors = 0;
+      if (age < 18) youthFactors += 2;
+      if (bmi < 25) youthFactors++;
+      if (!hypertension) youthFactors++;
+      if (!heart_disease) youthFactors++;
+      confidence = Math.min(0.9, 0.5 + (youthFactors * 0.1));
+    } else if (clusterIndex === 3) { // Dewasa Muda Risiko Glukosa
+      let glucoseRiskFactors = 0;
+      if (age >= 25 && age <= 40) glucoseRiskFactors++;
+      if (hba1c >= 5.7) glucoseRiskFactors++;
+      if (glucose >= 140) glucoseRiskFactors++;
+      if (record.smoking_history === 'current') glucoseRiskFactors++;
+      confidence = Math.min(0.9, 0.5 + (glucoseRiskFactors * 0.12));
+    }
     
-    // Normalize probabilities
-    const sum = probabilities.reduce((a, b) => a + b, 0);
-    const normalizedProbs = probabilities.map(p => p / sum);
+    // Generate probabilities berdasarkan confidence
+    const probabilities = [0.1, 0.1, 0.1, 0.1];
+    probabilities[clusterIndex] = confidence;
     
-    const confidence = normalizedProbs[clusterIndex];
+    // Distribute remaining probability
+    const remaining = (1 - confidence) / 3;
+    for (let i = 0; i < 4; i++) {
+      if (i !== clusterIndex) {
+        probabilities[i] = remaining;
+      }
+    }
     
     console.log(`🎯 Predicted cluster: ${clusterIndex} with confidence: ${confidence.toFixed(3)}`);
     
     return {
       predicted_cluster: clusterIndex,
       confidence: confidence,
-      probabilities: normalizedProbs,
-      input_processed: processedData,
-      risk_score: riskScore
+      probabilities: probabilities,
+      input_processed: processedData
     };
 
   } catch (error) {
@@ -191,7 +270,7 @@ async function predictCluster(record) {
   }
 }
 
-// Function untuk mendapatkan info model
+// Update getModelInfo untuk cluster names yang benar
 function getModelInfo() {
   const params = loadPreprocessingParams();
   
@@ -202,10 +281,10 @@ function getModelInfo() {
     valid_smoking_history: params.onehot_encoder.categories[0],
     required_features: params.numeric_features.concat(['gender', 'smoking_history']),
     clusters: {
-      0: 'Low Risk Profile',
-      1: 'Moderate Risk Profile',
-      2: 'High Risk Profile',
-      3: 'Critical Risk Profile'
+      0: 'Lansia Berisiko Tinggi',
+      1: 'Dewasa Sehat Rendah Risiko',
+      2: 'Anak dan Remaja Sehat',
+      3: 'Dewasa Muda Risiko Glukosa Tinggi'
     },
     preprocessing_features: 13
   };
